@@ -1,0 +1,132 @@
+<!-- Travis Bot Container -->
+<div id="travis-bot-container" class="travis-bot-container travis-bot-hidden">
+  <!-- Full Chat Interface -->
+  <div id="travis-bot-chat" class="travis-bot-chat travis-bot-hidden">
+    <div class="travis-bot-header">
+      <div class="travis-bot-avatar">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+        </svg>
+      </div>
+      <div class="travis-bot-info">
+        <h3>Travis</h3>
+        <span>Lifestyle Travel Concierge</span>
+      </div>
+      <button id="travis-bot-close" class="travis-bot-close" aria-label="Close Travis Bot">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M19 6.41L17.59 5L12 10.59L6.41 5L5 6.41L10.59 12L5 17.59L6.41 19L12 13.41L17.59 19L19 17.59L13.41 12L19 6.41Z" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+    <div id="travis-bot-messages" class="travis-bot-messages">
+      <div class="travis-bot-message travis-bot-message--bot">
+        <div class="travis-bot-message-content">
+          <span id="travis-welcome-message">Hello! I'm Travis, your personal shopping assistant. How can I help you today?</span>
+        </div>
+      </div>
+    </div>
+    <div class="travis-bot-input-container">
+      <input type="text" id="travis-bot-input" class="travis-bot-input" placeholder="Type your message...">
+      <button id="travis-bot-send" class="travis-bot-send" aria-label="Send message">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2.01 21L23 12L2.01 3L2 10L17 12L2 14L2.01 21Z" fill="currentColor"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Initial Concierge Image Button -->
+  <button id="travis-bot-initial" class="travis-bot-initial travis-bot-hidden" aria-label="Open Travis Bot">
+    <img src="https://cdn.shopify.com/s/files/1/0564/5284/1650/files/Concierge-icon.jpg?v=1756749606" alt="Lifestyle Travel Concierge" class="travis-bot-initial-image">
+    <span class="travis-bot-close-initial">×</span>
+  </button>
+  
+  <!-- Minimized Icon Button -->
+  <button id="travis-bot-minimized" class="travis-bot-minimized travis-bot-hidden" aria-label="Open Travis Bot">
+    <svg class="travis-bot-minimized-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="currentColor"/>
+    </svg>
+  </button>
+</div>
+
+<script>
+  window.TravisData = {
+    {% if customer %}
+    customer: {
+      id: {{ customer.id | json }},
+      firstName: {{ customer.first_name | json }},
+      lastName: {{ customer.last_name | json }},
+      email: {{ customer.email | json }},
+      ordersCount: {{ customer.orders_count | json }}
+    },
+    {% else %}
+    customer: null,
+    {% endif %}
+    
+    {% if cart %}
+    cart: {
+      itemCount: {{ cart.item_count | json }},
+      totalPrice: {{ cart.total_price | money_without_currency | json }}
+    },
+    {% else %}
+    cart: null,
+    {% endif %}
+    
+    collections: [
+      {% for collection in collections %}
+      {
+        id: {{ collection.id | json }},
+        title: {{ collection.title | json }},
+        handle: {{ collection.handle | json }},
+        productsCount: {{ collection.products_count | json }}
+      }{% unless forloop.last %},{% endunless %}
+      {% endfor %}
+    ],
+    
+    featuredProducts: [
+      {% for product in collections.all.products limit: 10 %}
+      {
+        id: {{ product.id | json }},
+        title: {{ product.title | json }},
+        handle: {{ product.handle | json }},
+        price: {{ product.price | money_without_currency | json }},
+        comparePrice: {{ product.compare_at_price | money_without_currency | json }},
+        type: {{ product.type | json }},
+        tags: {{ product.tags | json }}
+      }{% unless forloop.last %},{% endunless %}
+      {% endfor %}
+    ],
+    
+    // Add page context information
+    pageContext: {
+      type: {{ template | json }},
+      {% if template == 'product' %}
+      product: {
+        id: {{ product.id | json }},
+        title: {{ product.title | json }},
+        handle: {{ product.handle | json }},
+        type: {{ product.type | json }},
+        price: {{ product.price | money_without_currency | json }},
+        comparePrice: {{ product.compare_at_price | money_without_currency | json }},
+        tags: {{ product.tags | json }}
+      },
+      {% endif %}
+      {% if template == 'collection' %}
+      collection: {
+        id: {{ collection.id | json }},
+        title: {{ collection.title | json }},
+        handle: {{ collection.handle | json }},
+        productsCount: {{ collection.products_count | json }}
+      },
+      {% endif %}
+      {% if template == 'cart' %}
+      cartPage: true,
+      {% endif %}
+      {% if template == 'search' %}
+      searchPage: true,
+      searchTerms: {{ search.terms | json }},
+      resultsCount: {{ search.results_count | json }},
+      {% endif %}
+    }
+  };
+</script>
