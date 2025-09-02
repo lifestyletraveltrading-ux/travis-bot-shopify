@@ -1,7 +1,9 @@
- </main>
+</main>
   
-  {% render 'travis-bot' %}
-  <link rel="stylesheet" href="{{ 'travis-bot.css' | asset_url }}">
-  <script src="{{ 'travis-bot.js' | asset_url }}"></script>
-  </body>
+{% render 'travis-shopify-data' %}
+{% render 'travis-bot' %}
+<link rel="stylesheet" href="{{ 'travis-bot.css' | asset_url }}">
+<script src="{{ 'travis-bot.js' | asset_url }}"></script>
+  
+</body>
 </html>
