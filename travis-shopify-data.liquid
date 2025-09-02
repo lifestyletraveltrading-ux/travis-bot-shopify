@@ -1,173 +1,81 @@
-{%- comment -%}
-Travis Bot - Shopify Data Integration
-Provides product, collection, and customer data to Travis Bot
-{%- endcomment -%}
-
 <script>
-// Shopify Data for Travis Bot
-window.TravisShopifyData = {
-  // Store Information
-  shop: {
-    name: {{ shop.name | json }},
-    domain: {{ shop.domain | json }},
-    currency: {{ shop.currency | json }},
-    moneyFormat: {{ shop.money_format | json }}
-  },
-
-  // Current Customer Data
-  customer: {
+  window.TravisData = {
     {% if customer %}
+    customer: {
       id: {{ customer.id | json }},
       firstName: {{ customer.first_name | json }},
       lastName: {{ customer.last_name | json }},
       email: {{ customer.email | json }},
-      ordersCount: {{ customer.orders_count | json }},
-      totalSpent: {{ customer.total_spent | money_without_currency | json }},
-      tags: {{ customer.tags | split: ', ' | json }},
-      acceptsMarketing: {{ customer.accepts_marketing | json }}
+      ordersCount: {{ customer.orders_count | json }}
+    },
     {% else %}
-      id: null,
-      firstName: null,
-      lastName: null,
-      email: null,
-      ordersCount: 0,
-      totalSpent: 0,
-      tags: [],
-      acceptsMarketing: false
+    customer: null,
     {% endif %}
-  },
-
-  // Current Page Context
-  page: {
-    type: {{ request.page_type | json }},
-    handle: {{ page.handle | default: product.handle | default: collection.handle | json }},
-    title: {{ page.title | default: product.title | default: collection.title | json }}
-  },
-
-  // Current Product (if on product page)
-  currentProduct: {
-    {% if product %}
-      id: {{ product.id | json }},
-      title: {{ product.title | json }},
-      handle: {{ product.handle | json }},
-      price: {{ product.price | money_without_currency | json }},
-      comparePrice: {{ product.compare_at_price | money_without_currency | json }},
-      available: {{ product.available | json }},
-      type: {{ product.type | json }},
-      vendor: {{ product.vendor | json }},
-      tags: {{ product.tags | split: ', ' | json }},
-      description: {{ product.description | strip_html | truncate: 200 | json }},
-      images: [
-        {% for image in product.images limit: 3 %}
-          {
-            url: {{ image | image_url: width: 300 | json }},
-            alt: {{ image.alt | json }}
-          }{% unless forloop.last %},{% endunless %}
-        {% endfor %}
-      ],
-      variants: [
-        {% for variant in product.variants limit: 10 %}
-          {
-            id: {{ variant.id | json }},
-            title: {{ variant.title | json }},
-            price: {{ variant.price | money_without_currency | json }},
-            available: {{ variant.available | json }},
-            sku: {{ variant.sku | json }}
-          }{% unless forloop.last %},{% endunless %}
-        {% endfor %}
-      ]
+    
+    {% if cart %}
+    cart: {
+      itemCount: {{ cart.item_count | json }},
+      totalPrice: {{ cart.total_price | money_without_currency | json }}
+    },
     {% else %}
-      id: null
+    cart: null,
     {% endif %}
-  },
-
-  // Current Collection (if on collection page)
-  currentCollection: {
-    {% if collection %}
-      id: {{ collection.id | json }},
-      title: {{ collection.title | json }},
-      handle: {{ collection.handle | json }},
-      description: {{ collection.description | strip_html | truncate: 200 | json }},
-      productsCount: {{ collection.products_count | json }}
-    {% else %}
-      id: null
-    {% endif %}
-  },
-
-  // Popular Collections
-  collections: [
-    {% for collection in collections limit: 10 %}
+    
+    collections: [
+      {% for collection in collections %}
       {
         id: {{ collection.id | json }},
         title: {{ collection.title | json }},
         handle: {{ collection.handle | json }},
-        url: {{ collection.url | json }},
         productsCount: {{ collection.products_count | json }}
       }{% unless forloop.last %},{% endunless %}
-    {% endfor %}
-  ],
-
-  // Featured/Popular Products
-  featuredProducts: [
-    {% assign featured_collection = collections['featured'] | default: collections.first %}
-    {% for product in featured_collection.products limit: 8 %}
+      {% endfor %}
+    ],
+    
+    featuredProducts: [
+      {% for product in collections.all.products limit: 10 %}
       {
         id: {{ product.id | json }},
         title: {{ product.title | json }},
         handle: {{ product.handle | json }},
-        url: {{ product.url | json }},
         price: {{ product.price | money_without_currency | json }},
         comparePrice: {{ product.compare_at_price | money_without_currency | json }},
-        available: {{ product.available | json }},
         type: {{ product.type | json }},
-        vendor: {{ product.vendor | json }},
-        tags: {{ product.tags | split: ', ' | json }},
-        image: {
-          url: {{ product.featured_image | image_url: width: 300 | json }},
-          alt: {{ product.featured_image.alt | json }}
-        }
+        tags: {{ product.tags | json }}
       }{% unless forloop.last %},{% endunless %}
-    {% endfor %}
-  ],
-
-  // Cart Information
-  cart: {
-    itemCount: {{ cart.item_count | json }},
-    totalPrice: {{ cart.total_price | money_without_currency | json }},
-    items: [
-      {% for item in cart.items %}
-        {
-          id: {{ item.id | json }},
-          productId: {{ item.product_id | json }},
-          title: {{ item.product.title | json }},
-          variantTitle: {{ item.variant.title | json }},
-          quantity: {{ item.quantity | json }},
-          price: {{ item.price | money_without_currency | json }},
-          url: {{ item.url | json }}
-        }{% unless forloop.last %},{% endunless %}
       {% endfor %}
-    ]
-  },
-
-  // Store Policies & Info
-  policies: {
-    shippingPolicy: {{ shop.shipping_policy.url | json }},
-    refundPolicy: {{ shop.refund_policy.url | json }},
-    privacyPolicy: {{ shop.privacy_policy.url | json }},
-    termsOfService: {{ shop.terms_of_service.url | json }}
-  },
-
-  // Helper Functions
-  formatMoney: function(cents) {
-    return (cents / 100).toFixed(2);
-  },
-
-  formatPrice: function(cents) {
-    const price = this.formatMoney(cents);
-    return this.shop.currency + ' ' + price;
-  }
-};
-
-// Make data available globally
-window.TravisData = window.TravisShopifyData;
+    ],
+    
+    // Add page context information
+    pageContext: {
+      type: {{ template | json }},
+      {% if template == 'product' %}
+      product: {
+        id: {{ product.id | json }},
+        title: {{ product.title | json }},
+        handle: {{ product.handle | json }},
+        type: {{ product.type | json }},
+        price: {{ product.price | money_without_currency | json }},
+        comparePrice: {{ product.compare_at_price | money_without_currency | json }},
+        tags: {{ product.tags | json }}
+      },
+      {% endif %}
+      {% if template == 'collection' %}
+      collection: {
+        id: {{ collection.id | json }},
+        title: {{ collection.title | json }},
+        handle: {{ collection.handle | json }},
+        productsCount: {{ collection.products_count | json }}
+      },
+      {% endif %}
+      {% if template == 'cart' %}
+      cartPage: true,
+      {% endif %}
+      {% if template == 'search' %}
+      searchPage: true,
+      searchTerms: {{ search.terms | json }},
+      resultsCount: {{ search.results_count | json }},
+      {% endif %}
+    }
+  };
 </script>
