@@ -1,3 +1,4 @@
+
 /* Travis Bot Styles */
 #travis-bot-container {
   position: fixed;
@@ -362,4 +363,22 @@
     max-width: calc(100vw - 100px);
     right: 10px !important;
   }
+}
+/* Product recommendation styles */
+.travis-product-recommendation {
+  display: flex;
+  margin-bottom: 15px;
+  align-items: center;
+}
+
+.travis-product-image {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-right: 10px;
+}
+
+.travis-product-details {
+  flex: 1;
 }
