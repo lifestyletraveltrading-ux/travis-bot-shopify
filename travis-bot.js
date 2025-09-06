@@ -3,6 +3,7 @@ class TravisBot {
   constructor() {
     this.isOpen = false;
     this.messages = [];
+    this.lastQuestion = null;
     // Get Shopify data if available
     this.shopifyData = window.TravisData || {};
     // Product category synonyms
@@ -14,15 +15,66 @@ class TravisBot {
       'jewelry': ['jewelry', 'jewellery', 'ring', 'rings', 'necklace', 'necklaces', 'bracelet', 'bracelets', 'earring', 'earrings'],
       'clothing': ['clothing', 'clothes', 'shirt', 'shirts', 'pants', 'dress', 'dresses', 'top', 'tops', 'bottom', 'bottoms', 'jacket', 'jackets', 'outfit', 'outfits'],
       'footwear': ['footwear', 'shoe', 'shoes', 'boot', 'boots', 'sandal', 'sandals', 'slipper', 'slippers', 'sneaker', 'sneakers']
-    };
-    // Collection discounts
-    this.collectionDiscounts = {
-      'new-arrivals': 10,
-      'staff-picks': 20,
-      'back-in-stock': 15,
-      'on-sale': 25,
-      'final-sale': 35
-    };
+    };  // Conversational patterns for more natural interactions
+  this.conversationalPatterns = {
+    greetings: [
+      'hello', 'hi', 'hey', 'howdy', 'good morning', 'good afternoon', 'good evening', 
+      'greetings', 'sup', 'what\'s up', 'hiya', 'yo', 'hola', 'bonjour', 'g\'day'
+    ],
+    wellbeing: [
+      'how are you', 'how\'s it going', 'how are things', 'how have you been', 
+      'how\'s your day', 'how are you doing', 'how do you do', 'how\'s life',
+      'are you well', 'you good', 'you ok', 'you alright', 'you doing ok'
+    ],
+    thanks: [
+      'thank', 'thanks', 'appreciate', 'grateful', 'cheers', 'ta', 'merci'
+    ],
+    goodbye: [
+      'bye', 'goodbye', 'see you', 'later', 'farewell', 'adios', 'ciao', 'cheerio',
+      'take care', 'have a good day', 'have a nice day'
+    ],
+    affirmative: [
+      'yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'definitely', 'absolutely', 
+      'of course', 'please', 'yup', 'indeed', 'certainly', 'right', 'correct',
+      'agreed', 'alright', 'fine', 'good', 'great', 'perfect', 'true'
+    ],
+    negative: [
+      'no', 'nope', 'nah', 'not', 'don\'t', 'dont', 'never', 'pass', 
+      'not right now', 'not now', 'maybe later', 'negative', 'disagree',
+      'incorrect', 'wrong', 'false', 'nein', 'no way', 'no thanks'
+    ]
+  };
+
+  // Spelling variants for US/UK English
+  this.spellingVariants = {
+    'color': ['colour'],
+    'jewelry': ['jewellery'],
+    'center': ['centre'],
+    'favorite': ['favourite'],
+    'gray': ['grey'],
+    'pajamas': ['pyjamas'],
+    'catalog': ['catalogue'],
+    'check': ['cheque'],
+    'program': ['programme'],
+    'tire': ['tyre'],
+    'aluminum': ['aluminium'],
+    'meter': ['metre'],
+    'fiber': ['fibre'],
+    'license': ['licence'],
+    'defense': ['defence'],
+    'customize': ['customise'],
+    'organize': ['organise']
+  };
+  
+  // Collection discounts
+  this.collectionDiscounts = {
+    'new-arrivals': 10,
+    'staff-picks': 20,
+    'back-in-stock': 15,
+    'on-sale': 25,
+    'final-sale': 35
+  };
+
     // Conversation context
     this.conversationContext = {
       lastTopic: null,
@@ -121,7 +173,6 @@ class TravisBot {
       });
     }
   }
-
   openChat(contextMessage) {
     const chat = document.getElementById('travis-bot-chat');
     const initialBtn = document.getElementById('travis-bot-initial');
@@ -248,6 +299,9 @@ class TravisBot {
     messageDiv.appendChild(contentDiv);
     messagesContainer.appendChild(messageDiv);
     
+    // Save message to history
+    this.messages.push({ content, type });
+    
     // Scroll to bottom
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
@@ -276,25 +330,53 @@ class TravisBot {
     }
   }
   generateResponse(userMessage) {
-    const message = userMessage.toLowerCase();
-    let response = '';
+  const originalMessage = userMessage;
+  const message = this.normalizeMessage(userMessage);
+  let response = '';
 
-    // Check for confirmation responses first
-    if (this.conversationContext.awaitingConfirmation) {
-      if (this.isAffirmative(message)) {
-        response = this.handleConfirmation();
-      } else if (this.isNegative(message)) {
-        response = this.handleRejection();
-      } else {
-        // If the response is neither yes nor no, fall back to regular processing
-        this.conversationContext.awaitingConfirmation = false;
-      }
+  // Check for conversation starters first
+  if (this.isGreeting(message)) {
+    const customer = this.shopifyData.customer;
+    if (customer && customer.firstName) {
+      response = `Hello ${customer.firstName}! How can I help you today?`;
+    } else {
+      response = "Hello! How can I help you today?";
     }
+  }
+  else if (this.isWellbeingQuestion(message)) {
+    const customer = this.shopifyData.customer;
+    if (customer && customer.firstName) {
+      response = `I'm very well, thank you ${customer.firstName}! Thanks for asking. How can I help you today?`;
+    } else {
+      response = "I'm very well, thank you! Thanks for asking. How can I help you today?";
+    }
+  }
+  else if (this.isThanking(message)) {
+    response = "You're very welcome! I'm here whenever you need assistance. Happy shopping! 😊";
+  }
+  else if (this.isGoodbye(message)) {
+    response = "Thank you for chatting with me today! If you need anything else, I'll be here. Have a wonderful day!";
+  }
+  // Check for confirmation responses
+  else if (this.conversationContext.awaitingConfirmation) {
+    if (this.isAffirmative(message)) {
+      response = this.handleConfirmation();
+    } else if (this.isNegative(message)) {
+      response = this.handleRejection();
+    } else {
+      // If the response is neither yes nor no, fall back to regular processing
+      this.conversationContext.awaitingConfirmation = false;
+    }
+  }
 
     // If we haven't generated a response from confirmation handling
     if (!response) {
+      // Check for "yes" to "see more options" question
+      if (message === 'yes' && this.lastQuestion && this.lastQuestion.includes('more options')) {
+        response = this.handleShowMoreProducts();
+      }
       // Check for product-specific questions when on a product page
-      if (this.conversationContext.currentProduct && this.isProductSpecificQuestion(message)) {
+      else if (this.conversationContext.currentProduct && this.isProductSpecificQuestion(message)) {
         response = this.handleProductSpecificQuestion(message);
       }
       // Check for collection-specific questions when on a collection page
@@ -326,28 +408,39 @@ class TravisBot {
                message.includes('postage') || message.includes('send')) {
         response = "Our shipping policy:\n\n• Free shipping on orders over $250\n• Standard shipping: 3-5 business days\n• Express shipping: 1-2 business days\n\nShipping costs vary by product and destination country. The exact shipping cost will be calculated and displayed at checkout based on your location and the items in your cart.\n\nDo you have any other questions about shipping?";
       }
-      // Greeting
-      else if (message.includes('hello') || message.includes('hi ') || message === 'hi') {
-        const customer = this.shopifyData.customer;
-        if (customer && customer.firstName) {
-          response = `Hello ${customer.firstName}! How can I help you today?`;
-        } else {
-          response = "Hello! How can I help you today?";
-        }
-      }
-      // Product queries
-      else if (message.includes('product') || message.includes('item') || message.includes('show me')) {
-        const featuredProducts = this.shopifyData.featuredProducts || [];
-        if (featuredProducts.length > 0) {
-          response = "Here are some of our popular products:\n\n";
-          featuredProducts.slice(0, 3).forEach(product => {
-            response += `• <strong><a href="/products/${product.handle}" target="_blank">${product.title}</a></strong> - $${product.price}\n`;
-          });
-          response += "\nWould you like to know more about any of these?";
-        } else {
-          response = "I'd be happy to help you find products! What type of item are you looking for?";
-        }
-      }
+  // Greeting and conversational responses
+else if (message.includes('hello') || message.includes('hi ') || message === 'hi') {
+  const customer = this.shopifyData.customer;
+  if (customer && customer.firstName) {
+    response = `Hello ${customer.firstName}! How can I help you today?`;
+  } else {
+    response = "Hello! How can I help you today?";
+  }
+}
+// How are you type questions
+else if (message.includes('how are you') || message.includes('how\'s it going') || message.includes('how are things')) {
+  const customer = this.shopifyData.customer;
+  if (customer && customer.firstName) {
+    response = `I'm very well, thank you ${customer.firstName}! Thanks for asking. How can I help you today?`;
+  } else {
+    response = "I'm very well, thank you! Thanks for asking. How can I help you today?";
+  }
+}
+
+      // Product queries with images
+else if (message.includes('product') || message.includes('item') || message.includes('show me')) {
+  const featuredProducts = this.shopifyData.featuredProducts || [];
+  if (featuredProducts.length > 0) {
+    response = "Here are some of our popular products:<br><br>";
+    featuredProducts.slice(0, 3).forEach(product => {
+      response += this.formatProductWithImage(product);
+    });
+    response += "<br>Would you like to see more options?";
+    this.lastQuestion = "Would you like to see more options?";
+  } else {
+    response = "I'd be happy to help you find products! What type of item are you looking for?";
+  }
+}
       // Cart queries
       else if (message.includes('cart') || message.includes('checkout')) {
         const cart = this.shopifyData.cart;
@@ -391,7 +484,35 @@ class TravisBot {
       }
     }
 
+    // Store the last response if it contains a question
+    if (response.includes('?')) {
+      this.lastQuestion = response;
+    }
+
     this.addMessage(response, 'bot');
+  }
+
+  handleShowMoreProducts() {
+    const featuredProducts = this.shopifyData.featuredProducts || [];
+    
+    if (featuredProducts.length <= 3) {
+      return "I've shown you all the products I have available. Would you like to see our collections instead?";
+    }
+    
+    let response = "Here are more products you might like:<br><br>";
+    
+    // Show the next 3 products (4-6)
+    featuredProducts.slice(3, 6).forEach(product => {
+      response += this.formatProductWithImage(product);
+    });
+    
+    if (featuredProducts.length > 6) {
+      response += "<br>We have many more products available. Would you like to browse our collections?";
+    } else {
+      response += "<br>That's all the products I have to show. Would you like to browse our collections?";
+    }
+    
+    return response;
   }
 
   isProductSpecificQuestion(message) {
@@ -422,7 +543,6 @@ class TravisBot {
     // General product question
     return `You're looking at ${product.title} which is priced at $${product.price}. All the product specifications are listed on the product page. Is there something specific about this product you'd like to know?`;
   }
-
   isCollectionSpecificQuestion(message) {
     const collectionQuestionKeywords = [
       'popular', 'best seller', 'bestseller', 'top selling', 'recommend', 'suggestion',
@@ -452,15 +572,54 @@ class TravisBot {
   }
 
   isAffirmative(message) {
-    const affirmativeResponses = ['yes', 'yeah', 'yep', 'sure', 'ok', 'okay', 'definitely', 'absolutely', 'of course', 'please', 'yup'];
-    return affirmativeResponses.some(word => message.includes(word));
-  }
+  return this.conversationalPatterns.affirmative.some(word => 
+    message.includes(word) || message === word
+  );
+}
 
-  isNegative(message) {
-    const negativeResponses = ['no', 'nope', 'nah', 'not', 'don\'t', 'dont', 'never', 'pass'];
-    return negativeResponses.some(word => message.includes(word));
-  }
+isNegative(message) {
+  return this.conversationalPatterns.negative.some(word => 
+    message.includes(word) || message === word
+  );
+}
 
+isGreeting(message) {
+  return this.conversationalPatterns.greetings.some(greeting => 
+    message.includes(greeting) || message === greeting
+  );
+}
+
+isWellbeingQuestion(message) {
+  return this.conversationalPatterns.wellbeing.some(phrase => 
+    message.includes(phrase)
+  );
+}
+
+isThanking(message) {
+  return this.conversationalPatterns.thanks.some(phrase => 
+    message.includes(phrase)
+  );
+}
+
+isGoodbye(message) {
+  return this.conversationalPatterns.goodbye.some(phrase => 
+    message.includes(phrase)
+  );
+}
+
+normalizeMessage(message) {
+  let normalized = message.toLowerCase();
+  
+  // Replace UK spellings with US spellings for consistency
+  for (const [us, uk] of Object.entries(this.spellingVariants)) {
+    for (const variant of uk) {
+      normalized = normalized.replace(new RegExp(variant, 'g'), us);
+    }
+  
+  return normalized;
+}
+
+}
   handleConfirmation() {
     let response = '';
     
@@ -492,26 +651,29 @@ class TravisBot {
   }
 
   handleRejection() {
-    let response = '';
-    
-    switch (this.conversationContext.confirmationType) {
-      case 'new-arrivals':
-      case 'staff-picks':
-      case 'back-in-stock':
-      case 'on-sale':
-      case 'final-sale':
-        response = "No problem! Is there something else you'd like to see? I can show you our popular products or help you find something specific.";
-        break;
-      default:
-        response = "Alright! Is there something else I can help you with today?";
-    }
-    
-    // Reset confirmation context
-    this.conversationContext.awaitingConfirmation = false;
-    this.conversationContext.confirmationType = null;
-    
-    return response;
+  let response = '';
+  
+  switch (this.conversationContext.confirmationType) {
+    case 'new-arrivals':
+      response = "No problem! What would you like to see instead? I can help you find specific products or collections.";
+      break;
+    case 'staff-picks':
+    case 'back-in-stock':
+    case 'on-sale':
+    case 'final-sale':
+      response = "No problem! Is there something else you'd like to see? I can show you our popular products or help you find something specific.";
+      break;
+    default:
+      response = "Alright! Is there something else I can help you with today?";
   }
+  
+  // Reset confirmation context
+  this.conversationContext.awaitingConfirmation = false;
+  this.conversationContext.confirmationType = null;
+  
+  return response;
+}
+
 
   findCollection(namePattern) {
     const collections = this.shopifyData.collections || [];
@@ -546,6 +708,7 @@ class TravisBot {
     
     return 0;
   }
+
   handleNewArrivalsQuery() {
     // Set conversation context
     this.conversationContext.lastTopic = 'new-arrivals';
@@ -558,90 +721,193 @@ class TravisBot {
   }
 
   isProductSearch(message) {
-    // Check if message contains product category keywords
-    for (const [category, synonyms] of Object.entries(this.productSynonyms)) {
-      if (synonyms.some(synonym => message.includes(synonym))) {
+  console.log("Checking if this is a product search:", message);
+  
+  // Direct check for "show me products" type queries
+  if (message.includes('show me') || message.includes('show some') || 
+      (message.includes('product') && !message.includes('specific'))) {
+    console.log("Found direct product request");
+    return true;
+  }
+  
+  // Check if message contains product category keywords
+  for (const [category, synonyms] of Object.entries(this.productSynonyms)) {
+    for (const synonym of synonyms) {
+      if (message.includes(synonym)) {
+        console.log("Found product category match:", synonym);
         return true;
       }
     }
-    
-    // Check for general search patterns
-    const searchPatterns = [
-      'looking for', 'need', 'want', 'find', 'search', 'show me', 'do you have', 'any'
-    ];
-    
-    return searchPatterns.some(pattern => message.includes(pattern));
   }
+  
+  // Check for color-based searches
+  const colors = ['red', 'blue', 'green', 'black', 'white', 'yellow', 'purple', 'pink', 'orange', 'brown', 'grey', 'gray', 'silver', 'gold'];
+  for (const color of colors) {
+    if (message.includes(color)) {
+      console.log("Found color-based search:", color);
+      return true;
+    }
+  }
+  
+  // Check for general search patterns
+  const searchPatterns = [
+    'looking for', 'need', 'want', 'find', 'search', 'do you have', 'any'
+  ];
+  
+  for (const pattern of searchPatterns) {
+    if (message.includes(pattern)) {
+      console.log("Found search pattern:", pattern);
+      return true;
+    }
+  }
+  
+  return false;
+}
 
   handleSmartProductSearch(message) {
-    // Determine what category they're looking for
-    let searchCategory = null;
-    let searchSynonyms = [];
-    
-    for (const [category, synonyms] of Object.entries(this.productSynonyms)) {
-      if (synonyms.some(synonym => message.includes(synonym))) {
+  console.log("Smart product search for:", message);
+  
+  // Normalize the message to handle spelling variants
+  const normalizedMessage = this.normalizeMessage(message);
+  
+  // Determine what category they're looking for
+  let searchCategory = null;
+  let searchSynonyms = [];
+  
+  for (const [category, synonyms] of Object.entries(this.productSynonyms)) {
+    for (const synonym of synonyms) {
+      if (normalizedMessage.includes(synonym)) {
         searchCategory = category;
         searchSynonyms = synonyms;
+        console.log("Found category match:", category, "from synonym:", synonym);
         break;
       }
     }
+    if (searchCategory) break;
+  }
+  
+  // Extract colors
+  const colors = ['red', 'blue', 'green', 'black', 'white', 'yellow', 'purple', 'pink', 'orange', 'brown', 'grey', 'gray', 'silver', 'gold'];
+  let searchColor = null;
+  
+  for (const color of colors) {
+    if (normalizedMessage.includes(color)) {
+      searchColor = color;
+      console.log("Found color match:", color);
+      break;
+    }
+  }
+  
+  const featuredProducts = this.shopifyData.featuredProducts || [];
+  const collections = this.shopifyData.collections || [];
+  console.log("Total featured products:", featuredProducts.length);
+  
+  // If we have a category or color to search for
+  if (searchCategory || searchColor) {
+    console.log("Searching for products with category:", searchCategory, "color:", searchColor);
     
-    const featuredProducts = this.shopifyData.featuredProducts || [];
-    const collections = this.shopifyData.collections || [];
-    
-    if (searchCategory) {
-      // Find products that match the category
-      const matchingProducts = featuredProducts.filter(product => {
-        const title = product.title.toLowerCase();
-        const tags = (product.tags || []).map(tag => tag.toLowerCase());
-        
-        return searchSynonyms.some(synonym => 
-          title.includes(synonym) || tags.some(tag => tag.includes(synonym))
-        );
-      });
+    // Find products that match the criteria
+    const matchingProducts = featuredProducts.filter(product => {
+      const title = (product.title || '').toLowerCase();
+      const tags = (product.tags || []).map(tag => tag.toLowerCase());
+      const type = (product.type || '').toLowerCase();
       
-      // Find collections that match the category
-      const matchingCollections = collections.filter(collection => {
-        const title = collection.title.toLowerCase();
-        const handle = collection.handle.toLowerCase();
-        
-        return searchSynonyms.some(synonym => 
+      let matchesCategory = true;
+      let matchesColor = true;
+      
+      // Check category match if specified
+      if (searchCategory) {
+        matchesCategory = searchSynonyms.some(synonym => 
+          title.includes(synonym) || 
+          tags.some(tag => tag.includes(synonym)) ||
+          type.includes(synonym)
+        );
+      }
+      
+      // Check color match if specified
+      if (searchColor) {
+        matchesColor = title.includes(searchColor) || 
+                      tags.some(tag => tag.includes(searchColor));
+      }
+      
+      return matchesCategory && matchesColor;
+    });
+    
+    console.log(`Found ${matchingProducts.length} matching products`);
+    
+    // Find collections that match the category
+    const matchingCollections = collections.filter(collection => {
+      const title = collection.title.toLowerCase();
+      const handle = collection.handle.toLowerCase();
+      
+      let matchesCategory = true;
+      
+      if (searchCategory) {
+        matchesCategory = searchSynonyms.some(synonym => 
           title.includes(synonym) || handle.includes(synonym)
         );
+      }
+      
+      return matchesCategory;
+    });
+    
+    let response = "";
+    
+    if (matchingProducts.length > 0) {
+      const categoryText = searchCategory || '';
+      const colorText = searchColor ? ` ${searchColor}` : '';
+      response = `Great! I found some${colorText} ${categoryText} items for you:<br><br>`;
+      
+      matchingProducts.slice(0, 3).forEach(product => {
+        response += this.formatProductWithImage(product);
       });
       
-      let response = "";
+      if (matchingProducts.length > 3) {
+        response += `<br>...and ${matchingProducts.length - 3} more matching items.`;
+      }
+    } else {
+      // If no exact matches found, show all products
+      const categoryText = searchCategory ? `${searchCategory} ` : '';
+      const colorText = searchColor ? `${searchColor} ` : '';
       
-      if (matchingProducts.length > 0) {
-        response = `Great! I found some ${searchCategory} items for you:\n\n`;
-        
-        matchingProducts.slice(0, 3).forEach(product => {
-          response += `• <strong><a href="/products/${product.handle}" target="_blank">${product.title}</a></strong> - $${product.price}\n`;
-        });
-        
-        if (matchingProducts.length > 3) {
-          response += `\n...and ${matchingProducts.length - 3} more ${searchCategory} items.`;
-        }
+      // Check if we have watches specifically
+      if (searchCategory === 'watch') {
+        response = `I'm sorry, we don't currently have any watches in stock. Here are some other popular items you might like:<br><br>`;
+      } else {
+        response = `I couldn't find any specific ${categoryText}${colorText}products, but here are some items you might like:<br><br>`;
       }
       
-      if (matchingCollections.length > 0) {
-        if (response) response += "\n\n";
-        response += `We also have collections that might interest you:\n\n`;
-        
-        matchingCollections.forEach(collection => {
-          const url = this.getCollectionUrl(collection);
-          response += `• <strong><a href="${url}" target="_blank">${collection.title}</a></strong> (${collection.productsCount} items)\n`;
-        });
-      }
-      
-      if (response) {
-        response += "\n\nWould you like to see more options or need help with anything specific?";
-        return response;
-      }
+      featuredProducts.slice(0, 3).forEach(product => {
+        response += this.formatProductWithImage(product);
+      });
     }
     
-    return "I'd love to help you find what you're looking for! Could you be more specific about the type of product you need? For example, are you looking for bags, watches, luggage, or something else?";
+    if (matchingCollections.length > 0) {
+      if (response) response += "<br><br>";
+      response += `We also have collections that might interest you:<br><br>`;
+      
+      matchingCollections.forEach(collection => {
+        const url = this.getCollectionUrl(collection);
+        response += `• <strong><a href="${url}" target="_blank">${collection.title}</a></strong> (${collection.productsCount} items)<br>`;
+      });
+    }
+    
+    response += "<br>Would you like to see more options or need help with anything specific?";
+    this.lastQuestion = "Would you like to see more options?";
+    return response;
   }
+  
+  // If no category or color specified, show featured products
+  let response = "Here are some of our popular products:<br><br>";
+  
+  featuredProducts.slice(0, 3).forEach(product => {
+    response += this.formatProductWithImage(product);
+  });
+  
+  response += "<br>Would you like to see more options?";
+  this.lastQuestion = "Would you like to see more options?";
+  return response;
+}
 
   handleSaleItemsQuery() {
     // Find sale collections
@@ -661,15 +927,14 @@ class TravisBot {
     
     if (saleProducts.length > 0) {
       hasSaleItems = true;
-      response = "Here are some of our items currently on sale:\n\n";
+      response = "Here are some of our items currently on sale:<br><br>";
       
       saleProducts.slice(0, 3).forEach(product => {
-        const discount = Math.round((parseFloat(product.comparePrice) - parseFloat(product.price)) / parseFloat(product.comparePrice) * 100);
-        response += `• <strong><a href="/products/${product.handle}" target="_blank">${product.title}</a></strong> - $${product.price} <strike>$${product.comparePrice}</strike> (${discount}% off)\n`;
+        response += this.formatProductWithImage(product);
       });
       
       if (saleProducts.length > 3) {
-        response += `\n...and ${saleProducts.length - 3} more sale items.`;
+        response += `<br>...and ${saleProducts.length - 3} more sale items.`;
       }
     }
     
@@ -681,33 +946,34 @@ class TravisBot {
       hasCollections = true;
       const discount = this.getCollectionDiscount(onSaleCollection);
       const url = this.getCollectionUrl(onSaleCollection);
-      collectionsText += `• <strong><a href="${url}" target="_blank">On Sale Now</a></strong>: ${discount}% off selected items (${onSaleCollection.productsCount} products)\n`;
+      collectionsText += `• <strong><a href="${url}" target="_blank">On Sale Now</a></strong>: ${discount}% off selected items (${onSaleCollection.productsCount} products)<br>`;
     }
     
     if (finalSaleCollection && finalSaleCollection.productsCount > 0) {
       hasCollections = true;
       const discount = this.getCollectionDiscount(finalSaleCollection);
       const url = this.getCollectionUrl(finalSaleCollection);
-      collectionsText += `• <strong><a href="${url}" target="_blank">Final Sale</a></strong>: ${discount}% off items being discontinued (${finalSaleCollection.productsCount} products)\n`;
+      collectionsText += `• <strong><a href="${url}" target="_blank">Final Sale</a></strong>: ${discount}% off items being discontinued (${finalSaleCollection.productsCount} products)<br>`;
     }
     
     if (hasCollections) {
       if (hasSaleItems) {
-        response += "\n\nWe also have special sale collections:\n\n";
+        response += "<br><br>We also have special sale collections:<br><br>";
       } else {
-        response = "We have special sale collections with great discounts:\n\n";
+        response = "We have special sale collections with great discounts:<br><br>";
       }
       response += collectionsText;
     }
     
     if (hasSaleItems || hasCollections) {
-      response += "\nWould you like to see more sale items?";
+      response += "<br>Would you like to see more sale items?";
       return response;
     } else {
       // No sale products found
       return "We don't have any items on sale right now, but we regularly update our promotions! Would you like to see our featured products instead?";
     }
   }
+
   handleOrderTracking(message) {
     const customer = this.shopifyData.customer;
     
@@ -896,10 +1162,30 @@ class TravisBot {
     // Start the timer
     resetTimer();
   }
+
+  formatProductWithImage(product) {
+    return `<div class="travis-product-recommendation">
+      <img src="${product.image || 'https://cdn.shopify.com/s/files/1/0564/5284/1650/files/placeholder-image.jpg'}" alt="${product.title}" class="travis-product-image">
+      <div class="travis-product-details">
+        <strong><a href="/products/${product.handle}" target="_blank">${product.title}</a></strong><br>
+        $${product.price}
+      </div>
+    </div>`;
+  }
 }
 
 // Initialize Travis Bot when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM loaded, starting Travis Bot...');
-  new TravisBot();
+  window.travisBot = new TravisBot();
 });
+
+// Also initialize if the page is already loaded
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+  console.log('Page already loaded, starting Travis Bot...');
+  setTimeout(() => {
+    if (!window.travisBot) {
+      window.travisBot = new TravisBot();
+    }
+  }, 1000);
+}
